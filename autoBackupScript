@@ -1,0 +1,107 @@
+#!/bin/bash
+
+devices=$(lsblk -o NAME,TYPE | grep "part" | awk '{print substr($1, 3)}')
+anyCipPart=false
+cipDevs=()
+
+for device in $devices; do
+	if sudo cryptsetup isLuks /dev/$device; then
+		cipDevs+=("/dev/$device")
+	fi
+done
+
+function backup {
+	bkFiles=()
+        for i in $cipDevs; do
+		fname="${i:5}_backup_$(date +%F_%T)"
+                sudo cryptsetup luksHeaderBackup $i --header-backup-file $fname
+		bkFiles+=$fname
+        done
+
+	read -p "Do you want to push the backups to git?(y/n): " resp
+	if [[ $resp == "y" ]]; then
+		git config --global init.defaultBranch main
+		git config --global user.name "john074"
+   		git config --global user.email you@example.com
+		git config --global pull.rebase false
+		rep=""
+		br=""
+		token=""
+		uname=""
+		sudo mkdir 'temp/'
+		for i in $bkFiles; do
+			sudo cp $i 'temp/'
+			sudo cp "autoBackupScript" 'temp/'
+		done
+		read -p "Use config file(y) or enter data manually(n)? " resp
+		if [[ $resp == "y" ]]; then
+			spl="="
+			confPath="/etc/gitUData.config"
+			uname=$(sudo awk 'NR==1' $confPath)
+			uname="${uname#*$spl}"
+			token=$(sudo awk 'NR==2' $confPath)
+			token="${token#*$spl}"
+			rep=$(sudo awk 'NR==3' $confPath)
+			rep="${rep#*$spl}"
+			br=$(sudo awk 'NR==4' $confPath)
+			br="${br#*$spl}"
+
+		elif [[ $resp == "n" ]]; then
+			read -p "Specify repository name(not link!): " rep
+			read -p "Specify branch: " br
+			read -p "Specify username" uname
+			read -p "Specify user token" token
+		else
+			sudo rm -r -f 'temp/'
+		fi
+
+		cd 'temp/'
+		git init
+		git remote add origin 'https://'"$uname"':'"$token"'@github.com/'"$uname"'/'"$rep"''
+		git checkout -b $br
+		for i in $bkFiles; do
+			git add $i
+		done
+		git add "autoBackupScript"
+		git pull origin $br
+		git commit -m "Drive backups $(date +%F)"
+		git push origin $br
+		git remote rm origin
+		rm -rf .git
+		cd '../'
+		sudo rm -r -f 'temp/'
+	fi
+}
+
+
+function listCipDevs {
+	if [[ ${#cipDevs[@]} > 0 ]]; then
+		count=0
+		echo "Following incripted partitions were found:"
+		for device in $cipDevs; do
+			echo "$count) $device"
+			count+=1
+		done
+		echo "Type YES to backup all listed files"
+		echo "Or type numbers of partitions to exclude separated by commas"
+		read resp
+		regex='^([0-9]+,)*[0-9]+$'
+		if [[ $resp == "YES" ]]; then
+			backup
+		elif [[ $resp =~ $regex ]]; then
+			IFS=","
+			read -ra toExclude <<< "$resp"
+			for i in $toExclude; do
+				unset cipDevs[i]
+			done
+			listCipDevs
+		else
+			echo "Unexpected input. Operation aborted"
+		fi
+	else
+		echo "No incripted partitions were found"
+	fi
+}
+
+listCipDevs
+
