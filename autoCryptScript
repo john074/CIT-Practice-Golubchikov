@@ -1,0 +1,59 @@
+#!/bin/bash
+
+devices=$(lsblk -o NAME,TYPE | grep "part" | awk '{print substr($1, 3)}')
+cipDevs=()
+
+for device in ${devices[@]}; do
+	if ! sudo cryptsetup isLuks /dev/$device; then
+		cipDevs+=("/dev/$device")
+	fi
+done
+
+function listCipDevs {
+        if [[ ${#cipDevs[@]} > 0 ]]; then
+                count=0
+                echo "Following unencripted partitions were found:"
+                for device in ${cipDevs[@]}; do
+                        echo "$count) $device"
+                        count=$((count+1))
+                done
+                echo "Type numbers of partitions to encrypt separated by commas"
+                read resp
+                regex='^([0-9]+,)*[0-9]+$'
+                if [[ $resp =~ $regex ]]; then
+                        IFS=","
+                        read -ra include <<< "$resp"
+                        for i in ${include[@]}; do
+				encrypt "${cipDevs[$i]}"
+			done
+                else
+                        echo "Unexpected input. Operation aborted"
+                fi
+        else
+                echo "No incripted partitions were found"
+        fi
+}
+
+function encrypt {
+	dv=$1
+	sudo cryptsetup luksFormat $dv
+	if ! [[ -d "/etc/luks-keys" ]]; then
+		sudo mkdir "\etc\luks-keys"
+	fi
+	if ! [[ -f "/etc/luks-keys/script-luks-key" ]]; then
+		sudo dd if=/dev/urandom of=/etc/luks-keys/script-luks-key bs=512 count=8
+	fi
+	sudo cryptsetup -v luksAddKey $dv /etc/luks-keys/script-luks-key
+	uuid="$(sudo cryptsetup luksDump $dv | grep 'UUID')"
+	uuid="${uuid##* }"
+	uuid="${uuid:1}"
+	dvs="${dv:5}"
+	sudo cryptsetup luksOpen $dv  $dvs-crypt --key-file=/etc/luks-keys/script-luks-key
+	sudo mkfs.ext4 /dev/mapper/$dvs-crypt
+	echo "$dvs-crypt UUID=$uuid /etc/luks-keys/script-luks-key luks" | sudo tee -a /etc/crypttab > /dev/null
+	sudo mkdir -p "/mnt/$dv-c"
+	echo "/dev/mapper/$dvs-crypt /mnt/$dvs-c ext4 defaults 0 2"  | sudo tee -a /etc/fstab  > /dev/null
+}
+
+listCipDevs
+

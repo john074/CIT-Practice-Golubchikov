@@ -12,7 +12,7 @@ done
 
 function backup {
 	bkFiles=()
-        for i in $cipDevs; do
+        for i in ${cipDevs[@]}; do
 		fname="${i:5}_backup_$(date +%F_%T)"
                 sudo cryptsetup luksHeaderBackup $i --header-backup-file $fname
 		bkFiles+=$fname
@@ -29,9 +29,8 @@ function backup {
 		token=""
 		uname=""
 		sudo mkdir 'temp/'
-		for i in $bkFiles; do
+		for i in ${bkFiles[@]}; do
 			sudo cp $i 'temp/'
-			sudo cp "autoBackupScript" 'temp/'
 		done
 		read -p "Use config file(y) or enter data manually(n)? " resp
 		if [[ $resp == "y" ]]; then
@@ -59,10 +58,9 @@ function backup {
 		git init
 		git remote add origin 'https://'"$uname"':'"$token"'@github.com/'"$uname"'/'"$rep"''
 		git checkout -b $br
-		for i in $bkFiles; do
+		for i in ${bkFiles[@]}; do
 			git add $i
 		done
-		git add "autoBackupScript"
 		git pull origin $br
 		git commit -m "Drive backups $(date +%F)"
 		git push origin $br
@@ -78,7 +76,7 @@ function listCipDevs {
 	if [[ ${#cipDevs[@]} > 0 ]]; then
 		count=0
 		echo "Following incripted partitions were found:"
-		for device in $cipDevs; do
+		for device in ${cipDevs[@]}; do
 			echo "$count) $device"
 			count+=1
 		done
@@ -91,7 +89,7 @@ function listCipDevs {
 		elif [[ $resp =~ $regex ]]; then
 			IFS=","
 			read -ra toExclude <<< "$resp"
-			for i in $toExclude; do
+			for i in ${toExclude[@]}; do
 				unset cipDevs[i]
 			done
 			listCipDevs
