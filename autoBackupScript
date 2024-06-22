@@ -13,9 +13,16 @@ done
 function backup {
 	bkFiles=()
         for i in ${cipDevs[@]}; do
-		fname="${i:5}_backup_$(date +%F_%T)"
-                sudo cryptsetup luksHeaderBackup $i --header-backup-file $fname
-		bkFiles+=$fname
+		disk=$(lsblk -o NAME,MODEL | grep "${i:5:3} ")
+		fname="${disk:7}_${i:5}_backup_$(date +%Y-%m-%d)"
+		echo "Working with ${i:5}:"
+		sudo cryptsetup open $i tempr
+		sudo mount /dev/mapper/tempr /mnt/tempr
+                sudo cryptsetup luksHeaderBackup $i --header-backup-file /mnt/tempr/$fname
+		sudo tar cvpzf "$fname.tar.gz" -C /mnt/tempr .
+		sudo umount /mnt/tempr
+		sudo cryptsetup close tempr
+		bkFiles+=("$fname.tar.gz")
         done
 
 	read -p "Do you want to push the backups to git?(y/n): " resp
@@ -29,7 +36,9 @@ function backup {
 		token=""
 		uname=""
 		sudo mkdir 'temp/'
+		echo "$bkFiles[@]"
 		for i in ${bkFiles[@]}; do
+		echo "I $i"
 			sudo cp $i 'temp/'
 		done
 		read -p "Use config file(y) or enter data manually(n)? " resp
@@ -78,7 +87,7 @@ function listCipDevs {
 		echo "Following incripted partitions were found:"
 		for device in ${cipDevs[@]}; do
 			echo "$count) $device"
-			count+=1
+			count=$((count+1))
 		done
 		echo "Type YES to backup all listed files"
 		echo "Or type numbers of partitions to exclude separated by commas"
