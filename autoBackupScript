@@ -17,6 +17,7 @@ function backup {
 		fname="${disk:7}_${i:5}_backup_$(date +%Y-%m-%d)"
 		echo "Working with ${i:5}:"
 		sudo cryptsetup open $i tempr
+		sudo mkdir -p /mnt/tempr
 		sudo mount /dev/mapper/tempr /mnt/tempr
                 sudo cryptsetup luksHeaderBackup $i --header-backup-file /mnt/tempr/$fname
 		sudo tar cvpzf "$fname.tar.gz" -C /mnt/tempr .
