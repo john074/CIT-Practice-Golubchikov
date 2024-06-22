@@ -30,7 +30,7 @@ function listCipDevs {
                         echo "Unexpected input. Operation aborted"
                 fi
         else
-                echo "No incripted partitions were found"
+                echo "No encripted partitions were found"
         fi
 }
 
@@ -51,7 +51,7 @@ function encrypt {
 	sudo cryptsetup luksOpen $dv  $dvs-crypt --key-file=/etc/luks-keys/script-luks-key
 	sudo mkfs.ext4 /dev/mapper/$dvs-crypt
 	echo "$dvs-crypt UUID=$uuid /etc/luks-keys/script-luks-key luks" | sudo tee -a /etc/crypttab > /dev/null
-	sudo mkdir -p "/mnt/$dv-c"
+	sudo mkdir -p "/mnt/$dvs-c"
 	echo "/dev/mapper/$dvs-crypt /mnt/$dvs-c ext4 defaults 0 2"  | sudo tee -a /etc/fstab  > /dev/null
 }
 
