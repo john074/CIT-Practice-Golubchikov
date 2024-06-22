@@ -37,9 +37,7 @@ function backup {
 		token=""
 		uname=""
 		sudo mkdir 'temp/'
-		echo "$bkFiles[@]"
 		for i in ${bkFiles[@]}; do
-		echo "I $i"
 			sudo cp $i 'temp/'
 		done
 		read -p "Use config file(y) or enter data manually(n)? " resp
@@ -85,7 +83,7 @@ function backup {
 function listCipDevs {
 	if [[ ${#cipDevs[@]} > 0 ]]; then
 		count=0
-		echo "Following incripted partitions were found:"
+		echo "Following encripted partitions were found:"
 		for device in ${cipDevs[@]}; do
 			echo "$count) $device"
 			count=$((count+1))
@@ -107,7 +105,7 @@ function listCipDevs {
 			echo "Unexpected input. Operation aborted"
 		fi
 	else
-		echo "No incripted partitions were found"
+		echo "No encripted partitions were found"
 	fi
 }
 
